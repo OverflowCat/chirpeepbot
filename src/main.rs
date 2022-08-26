@@ -1,4 +1,5 @@
 use dotenvy::dotenv;
+use std::cmp::Ordering;
 use std::env;
 use std::error::Error;
 use std::{thread, time::Duration};
@@ -41,7 +42,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .auto_send();
     let chat = ChatId(-1001576907774);
-    bot.send_message(chat, "机器猫猫开始运行了喵～").await?;
+    println!("机器猫猫开始运行了喵～");
+    // bot.send_message(chat, "机器猫猫开始运行了喵～").await?;
 
     let users = vec![
         User {
@@ -55,14 +57,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ];
     let q = &build_query_of_tweets_from_multiple_users(&users);
 
-    let mut last_tweetid = NumericId::new(1562100139895898111);
+    let mut last_tweetid = NumericId::new(156304362859903476);
+    let auth = BearerToken::new(
+        env::var("TWITTER_API_BEARER")
+            .expect("Environment variable `TWITTER_API_BEARER` not set."),
+    );
+    let api = TwitterApi::new(auth);
     
     loop {
-        let auth = BearerToken::new(
-            env::var("TWITTER_API_BEARER")
-                .expect("Environment variable `TWITTER_API_BEARER` not set."),
-        );
-        let api = TwitterApi::new(auth);
+        println!("Now fetching tweets…");
         let maybe_tweets: Option<Vec<Tweet>> = api
             .get_tweets_search_recent(q)
             .since_id(last_tweetid)
@@ -76,23 +79,33 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .await?
             .into_data();
         if maybe_tweets.is_none() {
+            thread::sleep(Duration::from_secs(60 * 20));
             continue;
         }
         let tweets = maybe_tweets.unwrap();
+        println!("There are {} tweets", tweets.len());
         println!("{:?}", tweets);
         let last_tweetid_this_round = last_tweetid.clone();
         for t in tweets.iter().rev() {
-            if t.id <= last_tweetid_this_round {
-                continue;
+            match t.id.cmp(&last_tweetid_this_round) {
+                Ordering::Greater => {
+                    last_tweetid = last_tweetid.max(t.id);
+                    let text = format!(
+                        "{} just tweeted:\n{}\nhttps://vxtwitter.com/_/status/{}",
+                        get_name_from_id(t.author_id.unwrap(), &users),
+                        t.text,
+                        t.id.as_u64()
+                    );
+                    match bot.send_message(chat, text).await {
+                        Err(msg) => {
+                            println!("Error on sending to the group: {:?}", msg);
+                        }
+                        _ => {}
+                    };
+                }
+                _ => {}
             }
-            last_tweetid = last_tweetid.max(t.id);
-            let text = format!(
-                "{} just tweeted:\n{}",
-                get_name_from_id(t.author_id.unwrap(), &users),
-                t.text
-            );
-            bot.send_message(chat, text).await?;
         }
-        thread::sleep(Duration::from_secs(60 * 10));
+        thread::sleep(Duration::from_secs(60 * 20));
     }
 }
