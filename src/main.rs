@@ -57,13 +57,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ];
     let q = &build_query_of_tweets_from_multiple_users(&users);
 
-    let mut last_tweetid = NumericId::new(156304362859903476);
+    let mut last_tweetid = NumericId::new(1568204707335907814);
     let auth = BearerToken::new(
-        env::var("TWITTER_API_BEARER")
-            .expect("Environment variable `TWITTER_API_BEARER` not set."),
+        env::var("TWITTER_API_BEARER").expect("Environment variable `TWITTER_API_BEARER` not set."),
     );
     let api = TwitterApi::new(auth);
-    
+
     loop {
         println!("Now fetching tweets…");
         let maybe_tweets: Option<Vec<Tweet>> = api
@@ -91,8 +90,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 Ordering::Greater => {
                     last_tweetid = last_tweetid.max(t.id);
                     let text = format!(
-                        "{} just tweeted:\n{}\nhttps://vxtwitter.com/_/status/{}",
+                        "{} just {}tweeted:\n{}\nhttps://vxtwitter.com/_/status/{}",
                         get_name_from_id(t.author_id.unwrap(), &users),
+                        if t.text.starts_with("RT @") { "re" } else { "" },
                         t.text,
                         t.id.as_u64()
                     );
