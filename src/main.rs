@@ -10,6 +10,7 @@ use twitter_v2::query::{TweetField, UserField};
 use twitter_v2::{Tweet, TwitterApi};
 
 use teloxide::prelude::*;
+use teloxide::{types::ParseMode::MarkdownV2, utils::markdown::*};
 
 struct User {
     name: String,
@@ -43,7 +44,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     .auto_send();
     let chat = ChatId(-1001576907774);
     println!("机器猫猫开始运行了喵～");
-    // bot.send_message(chat, "机器猫猫开始运行了喵～").await?;
+    bot.send_message(chat, bold("机器猫猫开始运行了喵～"))
+        .parse_mode(MarkdownV2)
+        .await?;
 
     let users = vec![
         User {
@@ -54,10 +57,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             name: String::from("红豆豆"),
             id: NumericId::new(1248118040803209216),
         },
+        User {
+            name: format!("__世界猫猫__"),
+            id: NumericId::new(114514),
+        },
     ];
     let q = &build_query_of_tweets_from_multiple_users(&users);
 
-    let mut last_tweetid = NumericId::new(1568204707335907814);
+    let mut last_tweetid = NumericId::new(1581269541258382317);
     let auth = BearerToken::new(
         env::var("TWITTER_API_BEARER").expect("Environment variable `TWITTER_API_BEARER` not set."),
     );
@@ -89,14 +96,46 @@ async fn main() -> Result<(), Box<dyn Error>> {
             match t.id.cmp(&last_tweetid_this_round) {
                 Ordering::Greater => {
                     last_tweetid = last_tweetid.max(t.id);
-                    let text = format!(
-                        "{} just {}tweeted:\n{}\nhttps://vxtwitter.com/_/status/{}",
-                        get_name_from_id(t.author_id.unwrap(), &users),
-                        if t.text.starts_with("RT @") { "re" } else { "" },
-                        t.text,
+                    let replied_to_text = match t.in_reply_to_user_id {
+                        Some(id) => {
+                            match api
+                                .get_tweet(id)
+                                .tweet_fields([
+                                    TweetField::Entities,
+                                    TweetField::ReferencedTweets,
+                                    TweetField::AuthorId,
+                                ])
+                                .user_fields([UserField::Name, UserField::Username, UserField::Id])
+                                .send()
+                                .await?
+                                .into_data()
+                            {
+                                Some(t) => format!("\nIn reply to:\n{}", t.text),
+                                None => String::from("[你无权查看]"),
+                            }
+                        }
+                        None => String::from(""),
+                    };
+                    let tweet_link = escape_link_url(&format!(
+                        "https://fxtwitter.com/_/status/{}",
                         t.id.as_u64()
+                    ));
+                    let text = format!(
+                        "{} just {}:\n{}\n{}",
+                        get_name_from_id(t.author_id.unwrap(), &users), // user screen name
+                        link(
+                            &tweet_link,
+                            if t.text.starts_with("RT @") {
+                                "retweeted"
+                            } else {
+                                "tweeted"
+                            }, // tweeted/retweeted
+                        ), // <a>'
+                        escape(&t.text),
+                        escape(&replied_to_text)
                     );
-                    match bot.send_message(chat, text).await {
+                    println!("Message to be sent: {}", text);
+                    match bot.send_message(chat, text).parse_mode(MarkdownV2).await {
                         Err(msg) => {
                             println!("Error on sending to the group: {:?}", msg);
                         }
