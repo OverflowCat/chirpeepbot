@@ -59,12 +59,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         },
         User {
             name: format!("__世界猫猫__"),
-            id: NumericId::new(114514),
+            id: NumericId::new(1464488463831556102),
+        },
+        User {
+            name: String::from("Fourier-Deligne Transgirl"),
+            id: NumericId::new(2376980047),
         },
     ];
     let q = &build_query_of_tweets_from_multiple_users(&users);
 
-    let mut last_tweetid = NumericId::new(1581269541258382317);
+    let mut last_tweetid = NumericId::new(1590199074457112044);
     let auth = BearerToken::new(
         env::var("TWITTER_API_BEARER").expect("Environment variable `TWITTER_API_BEARER` not set."),
     );
