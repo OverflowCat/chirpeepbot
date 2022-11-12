@@ -58,12 +58,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
             id: NumericId::new(1248118040803209216),
         },
         User {
-            name: format!("__世界猫猫__"),
+            name: format!("{}猫猫", underline("世界")),
             id: NumericId::new(1464488463831556102),
         },
         User {
-            name: String::from("Fourier–Deligne Transgirl"),
-            id: NumericId::new(2376980047),
+            name: "喵喵".into(),
+            id: 711869340455309312.into(),
         },
     ];
     let q = &build_query_of_tweets_from_multiple_users(&users);
@@ -120,6 +120,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                         None => String::from(""),
                     };
+                    if t.text.contains("質問箱") {
+                        continue;
+                    }
                     let tweet_link = escape_link_url(&format!(
                         "https://fxtwitter.com/_/status/{}",
                         t.id.as_u64()
@@ -149,6 +152,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 _ => {}
             }
         }
-        thread::sleep(Duration::from_secs(60 * 20));
+        thread::sleep(Duration::from_secs(60 * 17));
     }
 }
