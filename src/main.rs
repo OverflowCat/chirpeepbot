@@ -62,7 +62,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             id: NumericId::new(1464488463831556102),
         },
         User {
-            name: String::from("Fourier-Deligne Transgirl"),
+            name: String::from("Fourier–Deligne Transgirl"),
             id: NumericId::new(2376980047),
         },
     ];
