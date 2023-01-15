@@ -65,10 +65,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             name: "喵喵".into(),
             id: 711869340455309312.into(),
         },
+        User {
+            name: "forestapp_cc".into(),
+            id: 2773672670.into(),
+        },
     ];
     let q = &build_query_of_tweets_from_multiple_users(&users);
 
-    let mut last_tweetid = NumericId::new(1590199074457112044);
+    let mut last_tweetid = NumericId::new(1603268215433753678);
     let auth = BearerToken::new(
         env::var("TWITTER_API_BEARER").expect("Environment variable `TWITTER_API_BEARER` not set."),
     );
