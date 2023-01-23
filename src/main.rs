@@ -1,5 +1,4 @@
 use dotenvy::dotenv;
-use std::cmp::Ordering;
 use std::env;
 use std::error::Error;
 use std::{thread, time::Duration};
@@ -40,14 +39,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     pretty_env_logger::init();
     let bot = Bot::new(
         env::var("CHIRPEEP_BOT_TOKEN").expect("Environment variable `CHIRPEEP_BOT_TOKEN` not set."),
-    )
-    .auto_send();
+    );
     let chat = ChatId(-1001576907774);
     println!("机器猫猫开始运行了喵～");
-    bot.send_message(chat, bold("机器猫猫开始运行了喵～"))
+    bot.send_message(chat, bold(&escape("机器猫猫开始运行了喵～\nteloxide 已升级至 0.12！")))
         .parse_mode(MarkdownV2)
         .await?;
-
     let users = vec![
         User {
             name: String::from("猫猫"),
@@ -72,11 +69,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
     ];
     let q = &build_query_of_tweets_from_multiple_users(&users);
 
-    let mut last_tweetid = NumericId::new(1603268215433753678);
+    let mut last_tweetid = NumericId::new(1617616949234888888);
     let auth = BearerToken::new(
         env::var("TWITTER_API_BEARER").expect("Environment variable `TWITTER_API_BEARER` not set."),
     );
     let api = TwitterApi::new(auth);
+
+    let liked_tweets: Option<Vec<Tweet>> = api
+        .get_user_liked_tweets(users[0].id)
+        .tweet_fields([
+            TweetField::Entities,
+            TweetField::ReferencedTweets,
+            TweetField::AuthorId,
+        ])
+        .user_fields([UserField::Name, UserField::Username, UserField::Id])
+        .send()
+        .await?
+        .into_data();
+
+    println!("{:#?}", liked_tweets);
 
     loop {
         println!("Now fetching tweets…");
@@ -101,60 +112,56 @@ async fn main() -> Result<(), Box<dyn Error>> {
         println!("{:?}", tweets);
         let last_tweetid_this_round = last_tweetid.clone();
         for t in tweets.iter().rev() {
-            match t.id.cmp(&last_tweetid_this_round) {
-                Ordering::Greater => {
-                    last_tweetid = last_tweetid.max(t.id);
-                    let replied_to_text = match t.in_reply_to_user_id {
-                        Some(id) => {
-                            match api
-                                .get_tweet(id)
-                                .tweet_fields([
-                                    TweetField::Entities,
-                                    TweetField::ReferencedTweets,
-                                    TweetField::AuthorId,
-                                ])
-                                .user_fields([UserField::Name, UserField::Username, UserField::Id])
-                                .send()
-                                .await?
-                                .into_data()
-                            {
-                                Some(t) => format!("\nIn reply to:\n{}", t.text),
-                                None => String::from("[你无权查看]"),
-                            }
-                        }
-                        None => String::from(""),
-                    };
-                    if t.text.contains("質問箱") {
-                        continue;
+            if t.id <= last_tweetid_this_round {
+                continue;
+            }
+            last_tweetid = last_tweetid.max(t.id);
+            let replied_to_text = match t.in_reply_to_user_id {
+                Some(id) => {
+                    match api
+                        .get_tweet(id)
+                        .tweet_fields([
+                            TweetField::Entities,
+                            TweetField::ReferencedTweets,
+                            TweetField::AuthorId,
+                        ])
+                        .user_fields([UserField::Name, UserField::Username, UserField::Id])
+                        .send()
+                        .await?
+                        .into_data()
+                    {
+                        Some(t) => format!("\nIn reply to:\n{}", t.text),
+                        None => String::from("[你无权查看]"),
                     }
-                    let tweet_link = escape_link_url(&format!(
-                        "https://fxtwitter.com/_/status/{}",
-                        t.id.as_u64()
-                    ));
-                    let text = format!(
-                        "{} just {}:\n{}\n{}",
-                        get_name_from_id(t.author_id.unwrap(), &users), // user screen name
-                        link(
-                            &tweet_link,
-                            if t.text.starts_with("RT @") {
-                                "retweeted"
-                            } else {
-                                "tweeted"
-                            }, // tweeted/retweeted
-                        ), // <a>'
-                        escape(&t.text),
-                        escape(&replied_to_text)
-                    );
-                    println!("Message to be sent: {}", text);
-                    match bot.send_message(chat, text).parse_mode(MarkdownV2).await {
-                        Err(msg) => {
-                            println!("Error on sending to the group: {:?}", msg);
-                        }
-                        _ => {}
-                    };
+                }
+                None => String::from(""),
+            };
+            if t.text.contains("質問箱") {
+                continue;
+            }
+            let tweet_link =
+                escape_link_url(&format!("https://fxtwitter.com/_/status/{}", t.id.as_u64()));
+            let text = format!(
+                "{} just {}:\n{}\n{}",
+                get_name_from_id(t.author_id.unwrap(), &users), // user screen name
+                link(
+                    &tweet_link,
+                    if t.text.starts_with("RT @") {
+                        "retweeted"
+                    } else {
+                        "tweeted"
+                    }, // tweeted/retweeted
+                ), // <a>'
+                escape(&t.text),
+                escape(&replied_to_text)
+            );
+            println!("Message to be sent: {}", text);
+            match bot.send_message(chat, text).parse_mode(MarkdownV2).await {
+                Err(msg) => {
+                    println!("Error on sending to the group: {:?}", msg);
                 }
                 _ => {}
-            }
+            };
         }
         thread::sleep(Duration::from_secs(60 * 17));
     }
