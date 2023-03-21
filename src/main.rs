@@ -16,10 +16,10 @@ struct User {
     id: NumericId,
 }
 
-fn build_query_of_tweets_from_multiple_users(users: &[User]) -> String {
+fn build_query_of_tweets_from_multiple_users(users: &Vec<User>) -> String {
     let strings: Vec<String> = users
         .iter()
-        .map(|u| format!("from:{}", u.id.as_u64()))
+        .map(|u| format!("from:{}", u.id.as_u64().to_string()))
         .collect();
     strings.join(" OR ")
 }
@@ -42,12 +42,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     );
     let chat = ChatId(-1001576907774);
     println!("机器猫猫开始运行了喵～");
-    bot.send_message(
-        chat,
-        bold(&escape("机器猫猫开始运行了喵～\nteloxide 已升级至 0.12！")),
-    )
-    .parse_mode(MarkdownV2)
-    .await?;
+    bot.send_message(chat, bold(&escape("机器猫猫开始运行了喵～\nteloxide 已升级至 0.12！")))
+        .parse_mode(MarkdownV2)
+        .await?;
     let users = vec![
         User {
             name: String::from("猫猫"),
@@ -113,7 +110,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         let tweets = maybe_tweets.unwrap();
         println!("There are {} tweets", tweets.len());
         println!("{:?}", tweets);
-        let last_tweetid_this_round = last_tweetid;
+        let last_tweetid_this_round = last_tweetid.clone();
         for t in tweets.iter().rev() {
             if t.id <= last_tweetid_this_round {
                 continue;
@@ -159,8 +156,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 escape(&replied_to_text)
             );
             println!("Message to be sent: {}", text);
-            if let Err(msg) = bot.send_message(chat, text).parse_mode(MarkdownV2).await {
-                println!("Error on sending to the group: {:?}", msg);
+            match bot.send_message(chat, text).parse_mode(MarkdownV2).await {
+                Err(msg) => {
+                    println!("Error on sending to the group: {:?}", msg);
+                }
+                _ => {}
             };
         }
         thread::sleep(Duration::from_secs(60 * 17));
